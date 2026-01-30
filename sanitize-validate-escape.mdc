@@ -1,0 +1,107 @@
+---
+description: >
+  Enforce the mantra **Sanitize early, Validate always, Escape late** when
+  handling user‑provided or dynamic data.  All input received via
+  `$_POST`, `$_GET`, `$_REQUEST`, `$_FILES` and any other untrusted source must be
+  sanitized as soon as it is retrieved, validated against an expected
+  pattern or whitelist, and escaped properly at the point of output.  This
+  rule helps prevent cross‑site scripting (XSS), SQL injection and other
+  security vulnerabilities【699810254291474†L66-L74】【541935294917050†L69-L87】.
+globs:
+  - '**/*.php'
+alwaysApply: true
+---
+
+### Summary
+
+Untrusted data can come from users, third‑party services or even your own
+database【699810254291474†L66-L74】.  WordPress documentation emphasises that all
+input should be treated as unsafe until it has been properly sanitized and
+validated【541935294917050†L69-L87】.  Sanitization is the process of cleaning or
+filtering data to remove unwanted characters; validation tests data against
+expected patterns and values【699810254291474†L66-L74】【541935294917050†L75-L87】.
+After the data has been stored or processed, it must be escaped at the
+moment of output using the appropriate `esc_*()` or `wp_kses()` functions
+【160188288341942†L88-L123】.  The mantra **Sanitize early, Escape late, Always
+Validate** summarises these practices: sanitize inputs right away, always
+validate data even if it’s sanitized, and escape data just before
+displaying it to the end user.
+
+### Rule
+
+1. **Sanitize inputs immediately.** Whenever you access data from
+   `$_POST`, `$_GET`, `$_REQUEST`, `$_FILES`, `$_COOKIE`, or any other
+   untrusted source, call an appropriate sanitization function as soon as
+   possible.  For example:
+
+   ```php
+   // Sanitize a text field input
+   $title = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
+
+   // Sanitize an email address
+   $email = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+
+   // Sanitize a key or slug
+   $slug = sanitize_key( wp_unslash( $_GET['slug'] ?? '' ) );
+   ```
+
+   WordPress provides a variety of helper functions such as
+   `sanitize_text_field()`, `sanitize_email()`, `sanitize_key()`,
+   `sanitize_file_name()`, `sanitize_hex_color()`, `sanitize_title()` and
+   others【699810254291474†L105-L130】.  Use these functions based on the type of
+   input you expect.  When there is no specific sanitization function,
+   consider using `wp_kses()` with an allowed list of HTML tags to strip
+   or allow safe markup.
+
+2. **Validate data against expected patterns.** Sanitization cleans
+   arbitrary data, but validation determines whether the data conforms to
+   required rules.  Always validate data, even after sanitization.  For
+   example:
+
+   ```php
+   // Validate that a phone number contains only digits and punctuation
+   if ( ! preg_match( '/^[0-9\-\(\)\s]+$/', $phone ) ) {
+       wp_die( 'Invalid phone number.' );
+   }
+
+   // Validate that a user‑submitted role is within the allowed list
+   $allowed_roles = array( 'editor', 'author', 'subscriber' );
+   if ( ! in_array( $role, $allowed_roles, true ) ) {
+       wp_die( 'Invalid role.' );
+   }
+   ```
+
+   Validation should happen as early as possible, before the data is used
+   or stored【541935294917050†L86-L87】.  When validating against a list of
+   allowed values (safelist), use strict comparisons (`===`) to prevent
+   unexpected values from passing【541935294917050†L94-L130】.
+
+3. **Escape data when outputting.** After sanitization and validation,
+   escape all variables, options and other data at the point of output using
+   context‑appropriate functions such as `esc_html()`, `esc_attr()`,
+   `esc_url()`, `esc_js()`, or `wp_kses_post()`【160188288341942†L88-L123】.
+   Never echo or print unescaped user input.  See the `escape-variables`
+   rule for detailed guidance on context‑specific escaping.  Remember to
+   escape data retrieved from the database or options table when outputting
+   it on the page; even sanitized values should be escaped【256278209473428†L58-L79】.
+
+4. **Use nonces and capability checks for sensitive actions.** When
+   processing form submissions or AJAX requests, generate and verify
+   nonces (`wp_nonce_field()`, `check_admin_referer()`) and verify user
+   capabilities (`current_user_can()`) to ensure only authorised users
+   perform sensitive operations【256278209473428†L67-L75】.
+
+5. **Audit existing code.** Regularly review code for direct access to
+   `$_POST`, `$_GET`, `$_REQUEST`, `$_FILES` or other superglobals without
+   sanitization or validation.  Refactor any such instances to apply
+   sanitization and validation as described above.  Similarly, search
+   for echo or print statements that output data without escaping and
+   refactor them to use the appropriate functions.
+
+### Exceptions
+
+- Hardcoded values or constants do not require sanitization or validation.
+- Data returned by trusted internal APIs that guarantee sanitized and
+  validated output (e.g., certain WordPress core functions) may not need
+  additional sanitization.  When in doubt, err on the side of caution and
+  sanitize, validate and escape.

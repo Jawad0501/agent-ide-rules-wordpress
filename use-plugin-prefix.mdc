@@ -1,0 +1,76 @@
+---
+description: >
+  Enforce a consistent naming convention across the plugin. All globally
+  accessible identifiers—functions, classes, global variables, constants,
+  hooks, script/style handles, options, and transients—must be prefixed with
+  the plugin’s unique slug to avoid naming collisions with WordPress core,
+  themes or other plugins【189989594574019†L92-L105】. WordPress recommends
+  using a prefix that is at least four characters long and distinct to your
+  plugin【189989594574019†L98-L101】.
+globs:
+  - "**/*.php"
+alwaysApply: true
+---
+
+## Rule: Prefix all global identifiers
+
+WordPress best practices advise developers to **prefix everything** that exists
+in the global namespace—functions, classes, variables, options, transients
+and hooks—to prevent naming collisions【189989594574019†L92-L116】. The theme
+review team also notes that even script and style handles should be prefixed
+【119684168506493†L50-L62】. Without a unique prefix, your plugin may conflict
+with other plugins or themes, causing fatal errors or unexpected behaviour.
+
+### Prefix to use
+
+Use the plugin slug `fluent_invoice` as the base prefix. For example:
+  * **Helper Functions**: `fluent_invoice_register_settings()`
+  * **Classes**: `class Fluent_Invoice_Admin {}`
+  * **Global variables**: `$fluent_invoice_cache = array();`
+  * **Constants**: `define( 'FLUENT_INVOICE_VERSION', '1.0.0' );`
+  * **Hooks**: `do_action( 'fluent_invoice_after_save', $data );`
+  * **Filter hooks**: `$data = apply_filters( 'fluent_invoice_modify_data', $data );`
+  * **Option keys & transients**: `get_option( 'fluent_invoice_settings' )`
+  * **Script/style handles**: `wp_enqueue_script( 'fluent-invoice-admin', ... )`
+
+### Requirements
+
+1. **Helper Functions**: All custom helper functions defined in the
+   global namespace must begin with the `fluent_invoice_` or `Fluent_Invoice_`
+   prefix. Do not use generic names like `init_plugin()` or `admin_menu()`—they
+   must be prefixed【189989594574019†L92-L112】.
+2. **Global variables and constants**: Any global variables, constants or
+   options/tran­sient names should start with the prefix (e.g., `$fluent_invoice_data` or
+   `FLUENT_INVOICE_API_KEY`) to avoid clobbering other globals【189989594574019†L134-L141】.
+3. **Action and filter hooks**: When creating or invoking custom hooks,
+   always include the prefix in the hook name. For example, instead of
+   `do_action( 'save_invoice', $args )`, use
+   `do_action( 'fluent_invoice_save_invoice', $args )`【119684168506493†L52-L105】.
+4. **Script and style handles**: When enqueuing scripts or styles with
+   `wp_enqueue_script()` or `wp_enqueue_style()`, include the slug with
+   hyphens in the handle, such as `fluent-invoice-admin`【119684168506493†L50-L62】.
+5. **Options and transients**: Prefix option names and transients stored in the
+   database (e.g., `update_option( 'fluent_invoice_settings', $settings );`).
+
+### Exceptions
+
+* **Namespaced code**: Functions and classes declared inside a PHP `namespace`
+  block do not need to be prefixed because the namespace provides isolation.
+* **Third‑party code**: External libraries should not be renamed. Instead,
+  wrap them in `function_exists()`/`class_exists()` checks to avoid redefining
+  existing functions or classes【189989594574019†L144-L156】.
+
+### Enforcement
+
+When adding new code, always apply the `fluent_invoice` prefix to anything that
+would exist in the global namespace. During refactoring, search for
+unprefixed functions, classes, variables, hooks, and handles in the plugin
+and update them to include the prefix. Use the following checklist:
+
+  - [ ] Functions and methods declared outside of classes begin with `fluent_invoice_`.
+  - [ ] Class names begin with `Fluent_Invoice_`.
+  - [ ] Global variables and constants begin with `fluent_invoice_` or
+    `FLUENT_INVOICE_`.
+  - [ ] Action and filter hooks are prefixed (e.g., `fluent_invoice_*`).
+  - [ ] Script and style handles include the slug (e.g., `fluent-invoice-*`).
+  - [ ] Option names and transients include the slug.

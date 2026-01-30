@@ -1,0 +1,116 @@
+---
+description: >
+  Require nonce and permission checks for any code that processes user input
+  (`$_POST`, `$_GET`, `$_REQUEST`, `$_FILES`, or AJAX requests).  Nonces
+  protect against cross‑site request forgery (CSRF) by ensuring the
+  request originates from the intended user, but they do not grant
+  authorization.  Always combine a nonce check with a capability check
+  (`current_user_can()`)【687829428957686†L90-L96】.  Handle input within
+  functions attached to appropriate actions (e.g., `admin_post_*`,
+  `wp_ajax_*`) rather than at the top level of your plugin to avoid
+  performance issues.
+globs:
+  - '**/*.php'
+alwaysApply: true
+---
+
+### Summary
+
+A WordPress nonce (number used once) is a unique token added to forms and
+URLs to verify the user’s intention and prevent CSRF attacks【687829428957686†L90-L124】.
+However, nonces alone do not provide authentication or authorization;
+they should never be relied upon for access control【687829428957686†L90-L96】.
+Instead, they must be used in tandem with user capability checks via
+`current_user_can()`【445554710062388†L31-L64】.  When verifying input,
+always assume that any `$_POST`, `$_GET`, `$_REQUEST`, or `$_FILES` value
+could be malicious.  Create nonces using `wp_nonce_field()` or
+`wp_nonce_url()` and verify them using `check_admin_referer()` for
+regular form submissions or `check_ajax_referer()` for AJAX
+requests【687829428957686†L148-L169】【687829428957686†L248-L262】.  Keep
+the logic for handling submissions inside action callbacks (e.g.,
+functions hooked to `admin_post_*` or `wp_ajax_*`) to avoid running
+expensive checks on every page load.
+
+### Rule
+
+1. **Generate nonces when outputting forms or URLs.**
+   - Use `wp_nonce_field( $action, $field_name )` inside forms to create a
+     hidden nonce field.  `$action` should describe the specific action
+     being performed (e.g., `save_settings`) and `$field_name` should be
+     unique to avoid collisions【687829428957686†L148-L173】.
+   - Use `wp_nonce_url( $url, $action, $field_name )` when generating
+     links that perform sensitive actions【687829428957686†L146-L169】.  For
+     example: `$delete_link = wp_nonce_url( $url, 'delete-item_' . $item_id, 'my_nonce' );`.
+   - For custom contexts, use `wp_create_nonce( $action )` to generate
+     a nonce and include it manually in the request【687829428957686†L200-L214】.
+
+2. **Verify nonces on submission.**
+   - In admin form handlers, call `check_admin_referer( $action, $field_name )` at the
+     beginning of your processing function.  This checks both the nonce
+     and the referrer; if the check fails, WordPress will abort with a
+     “403 Forbidden” response【687829428957686†L221-L246】.
+   - In AJAX callbacks, call `check_ajax_referer( $action, $field_name )` to
+     verify the nonce【687829428957686†L248-L262】.  Note that
+     `check_ajax_referer()` does not check the referrer by default, so you
+     may specify additional parameters if needed.
+   - For custom contexts (e.g., REST or front‑end forms), use
+     `wp_verify_nonce( $nonce, $action )` to check the nonce and abort
+     processing if it returns `false`【687829428957686†L248-L269】.
+
+3. **Combine nonce verification with capability checks.**
+   - Never rely solely on a nonce to determine if a user is allowed to perform an action.
+     After verifying the nonce, call `current_user_can( $capability )` to
+     confirm that the current user has the appropriate capability【687829428957686†L90-L96】.
+     For example:
+
+     ```php
+     // Inside your form or AJAX handler
+     check_admin_referer( 'save_settings', 'my_nonce' );
+     if ( ! current_user_can( 'manage_options' ) ) {
+         wp_die( __( 'You do not have permission to perform this action.', 'text-domain' ) );
+     }
+     // Proceed to handle the request
+     ```
+
+   - Always sanitise and validate input values before using them (see
+     the `sanitize-validate-escape` rule).
+
+4. **Place submission handling in functions hooked to specific actions.**
+   - For standard forms, register a handler on `admin_post_{action}` (for
+     logged‑in users) or `admin_post_nopriv_{action}` (for logged‑out
+     users) and perform nonce and capability checks inside the handler.
+     Example:
+
+     ```php
+     add_action( 'admin_post_save_settings', 'myplugin_handle_save_settings' );
+     function myplugin_handle_save_settings() {
+         check_admin_referer( 'save_settings', 'my_nonce' );
+         if ( ! current_user_can( 'manage_options' ) ) {
+             wp_die( __( 'Unauthorized request.', 'text-domain' ) );
+         }
+         // process sanitized $_POST values here
+     }
+     ```
+
+   - For AJAX, register handlers on `wp_ajax_{action}` and `wp_ajax_nopriv_{action}`
+     and perform nonce and capability checks inside the callback.  Do not
+     perform these checks outside of hooks or callbacks to avoid running them on every page load.
+
+5. **Performance considerations.**
+   - Avoid checking for form submissions or verifying nonces at the top level of
+     your plugin files.  Only execute submission handling when the
+     appropriate action (e.g., `admin_post_*` or `wp_ajax_*`) is triggered.
+     This prevents unnecessary checks on every page load, reducing overhead.
+   - When generating nonces in JavaScript for AJAX requests, generate
+     them once per page load (e.g., localise a script with the nonce value)
+     rather than generating a new nonce on each request.  Use the same
+     nonce for a series of related calls when appropriate and refresh
+     it only when necessary.
+
+### Exceptions
+
+- Static or public links that perform read‑only actions may not require
+  nonce checks, but they should still include capability checks.
+- In cases where a capability check alone is sufficient (e.g., viewing
+  protected content), you may omit the nonce check.  However, do not
+  omit capability checks when modifying data.

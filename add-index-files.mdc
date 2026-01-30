@@ -1,0 +1,73 @@
+---
+description: >
+  Require an `index.php` file in every plugin directory to prevent directory
+  listing and directory traversal.  When a visitor requests a folder on a
+  website, the web server will look for an index file (`index.php`,
+  `index.html`, etc.).  If no index file exists and directory listing is
+  enabled on the server, the visitor may see a list of files in that
+  directory.  WordPress itself places empty `index.php` files in core
+  folders such as `wp‑content` to stop browsers from viewing the contents of
+  the directory【180379637808332†L252-L258】【615892138685259†L114-L129】.  This rule
+  instructs the agent to add a minimal `index.php` (e.g., containing `<?php //
+  Silence is golden ?>`) to any new or existing directory in the plugin
+  that lacks one.  The blank file acts as a privacy screen and helps
+  protect the site from directory traversal attacks【180379637808332†L252-L258】.
+globs:
+  - '**/'
+alwaysApply: true
+---
+
+## Rule: Add `index.php` to all directories
+
+All plugin directories (including those created by the agent) **must contain
+an `index.php` file**.  Without an index file, some servers will list the
+contents of the directory to anyone who visits its URL.  Empty `index.php`
+files are a common technique in WordPress core for preventing directory
+traversal: they cause the server to return the file instead of the folder
+listing【615892138685259†L114-L129】.  The file does not need to execute any
+logic; a simple comment such as `// Silence is golden.` or a call to
+`exit;` is sufficient【180379637808332†L252-L258】.
+
+### Instructions
+
+1. **Audit existing directories**: When this rule is applied, scan the
+   plugin’s root folder and all subdirectories.  For each directory, check
+   whether an `index.php` file exists.  Ignore directories that are part of
+   composer/vendor dependencies or external packages, as they may already
+   implement their own security measures.
+
+2. **Create missing index files**: For any directory that does not have an
+   `index.php`, create one containing minimal code:
+
+   ```php
+   <?php
+   // Silence is golden.
+   ```
+
+   Alternatively, you may call `exit;` after the opening tag if you want
+   to terminate execution explicitly.  Do not include additional logic or
+   include/require statements.  The purpose of this file is solely to
+   block directory listing, not to run plugin code.
+
+3. **Maintain on new directories**: Whenever the agent generates a new
+   directory (e.g., while scaffolding features or adding assets), it must
+   also generate an `index.php` file inside that directory.  This applies
+   to asset folders (`css`, `js`, `images`, etc.), template folders,
+   language files, and any other custom subfolders.
+
+4. **Avoid redundancy**: If the server configuration already disables
+   directory listing via `.htaccess` (`Options -Indexes`) or another
+   mechanism, this rule still applies for consistency.  The tiny index
+   files add negligible overhead and ensure that folder access remains
+   blocked across varied environments【615892138685259†L114-L129】.
+
+### Exceptions
+
+* Third‑party libraries: Directories within `vendor/` or other external
+  libraries should not be modified.  Assume that the library authors
+  handle their own security and do not place index files there unless
+  necessary.
+* Example or documentation directories that are not published on the web
+  (e.g., within unit test directories) may omit index files.  The agent
+  should still default to adding them unless there is a clear reason not
+  to.

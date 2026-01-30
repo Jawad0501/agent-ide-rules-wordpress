@@ -1,0 +1,58 @@
+---
+description: >
+  Prohibit the use of WordPress helper functions `wp_send_json`,
+  `wp_send_json_success` and `wp_send_json_error` **within REST API handlers**.  These
+  helpers echo an encoded response and terminate script execution via
+  `die()`/`wp_die()`.  When called from a REST callback they trigger
+  `_doing_it_wrong` warnings and prevent WordPress from wrapping the response in
+  a `WP_REST_Response`.  Instead, REST callbacks must return a
+  `WP_REST_Response` or `WP_Error` object.  This rule still permits the use of
+  `wp_send_json*()` functions in **admin‑Ajax or traditional Ajax handlers** where
+  immediate termination is appropriate.
+globs:
+  - "**/*.php"
+alwaysApply: true
+---
+
+## Rule: Avoid wp_send_json in REST callbacks
+
+**Do not call** `wp_send_json()`, `wp_send_json_success()` or `wp_send_json_error()`
+within REST API callbacks.  These helpers send JSON data to the client and
+immediately terminate script execution.  The WordPress core documentation
+warns that they are inappropriate for REST handlers; instead you should
+return a `WP_REST_Response` or `WP_Error` object【15591609196239†L95-L109】.
+When used in other contexts—such as admin‑Ajax or legacy Ajax requests—these
+functions are permitted, but consider using a custom implementation if you
+need to set custom HTTP status codes or headers.
+
+### Replacement
+
+For **REST API endpoints**, your callback should return an instance of
+`WP_REST_Response` (or `WP_Error` for errors). Example:
+
+```php
+function my_plugin_get_items( $request ) {
+    // Validate and sanitize request parameters here.
+    $items = array( 'message' => 'ok' );
+    // Create a response object and set status code, headers etc.
+    return new WP_REST_Response( $items, 200 );
+    // Returning the array directly is also acceptable because WordPress
+    // automatically wraps it into a WP_REST_Response【15591609196239†L95-L109】.
+}
+```
+
+For **admin‑Ajax or other Ajax callbacks**, you may use `wp_send_json*()`
+functions when appropriate.
+
+
+```
+
+### Justification
+
+`wp_send_json` encodes a value and dies immediately. The official WordPress
+code reference notes that using it in REST API callbacks is wrong; developers
+are instructed to return `WP_REST_Response` or `WP_Error` objects instead【15591609196239†L95-L109】. By avoiding `wp_send_json` we maintain REST
+compatibility, gain control over status codes and headers, and ensure that
+responses adhere to WordPress security standards (proper header setting,
+sanitization, and termination). Always sanitize inputs, escape outputs, and
+validate capabilities when constructing JSON responses.

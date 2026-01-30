@@ -1,0 +1,89 @@
+---
+description: >
+  Enforce that all variables, options and dynamic data are escaped at the
+  moment of output using the appropriate `esc_*()` or `wp_kses()` functions.
+  Escaping output helps prevent cross‑site scripting (XSS) vulnerabilities and
+  is required by WordPress security best practices.  The rule emphasises
+  “escape late” — data should be sanitized or validated when received, but
+  escaped only when echoed or printed【160188288341942†L88-L92】【256278209473428†L58-L79】.
+globs:
+  - '**/*.php'
+alwaysApply: true
+---
+
+### Summary
+
+WordPress defines escaping as the process of securing data before it is rendered
+to the end user by stripping or encoding unwanted characters【160188288341942†L80-L91】.
+The core documentation stresses that developers must choose the correct
+`esc_*()` helper function based on the content and context being output
+(e.g., `esc_html()` for text within HTML, `esc_attr()` for attribute values,
+`esc_url()` for URLs, `esc_js()` for inline JavaScript) and to escape
+variables at the point of output【160188288341942†L88-L123】.  Data from
+untrusted sources—including `$` variables, options and values retrieved
+from the database—should be validated and sanitized when received and
+escaped as late as possible when output【256278209473428†L58-L79】.  Escaping
+late ensures that nothing alters the data between sanitization and output
+and aids code reviews by making the output safe at a glance【160188288341942†L175-L186】.
+
+### Rule
+
+1. **Escape late and contextually.** Whenever a variable or dynamic value is
+   output using `echo`, `print`, `printf` or concatenation, wrap it in the
+   appropriate escaping function at the time of output. Examples:
+
+   ```php
+   // Good: Escape variables at output
+   echo '<h2>' . esc_html( $title ) . '</h2>';
+   printf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( $link_text ) );
+   ```
+
+   Choose the function based on context: `esc_html()` for plain text inside
+   HTML elements, `esc_attr()` for attribute values, `esc_url()` for URLs,
+   `esc_js()` for inline JavaScript, `esc_textarea()` for textarea content,
+   and `wp_kses()`/`wp_kses_post()` for HTML that should preserve allowed
+   tags【160188288341942†L88-L123】.  Do not echo unescaped variables.
+
+2. **Do not escape prematurely.** Do not call escaping functions when
+   assigning or building variables.  Sanitize data early, then escape it
+   only when output.  For example:
+
+   ```php
+   // Not recommended: early escaping
+   $url = esc_url( $url );
+   echo '<a href="' . $url . '">' . esc_html( $text ) . '</a>';
+
+   // Recommended: escape late
+   echo '<a href="' . esc_url( $url ) . '">' . esc_html( $text ) . '</a>';
+   ```
+
+   Escaping late prevents the value from being changed after it has been
+   escaped and simplifies code reviews【160188288341942†L175-L186】.
+
+3. **Distinguish between sanitization and escaping.** Sanitization or
+   validation cleans data when it is received (e.g., using `sanitize_text_field()`
+   or `absint()`)【256278209473428†L58-L79】.  Escaping occurs at output.  Even
+   sanitized options and values retrieved from the database must be
+   escaped when echoed to prevent XSS.  Do not assume stored options are
+   safe for output.
+
+4. **Return rather than echo for non-human output.** Avoid echoing JSON
+   encoded data or API responses directly.  Functions that build JSON or
+   other machine-readable content should `return` the data (or use
+   appropriate WordPress APIs) rather than echoing it.  The agent should
+   not echo JSON strings unless they are meant for display to humans.
+
+5. **Review and refactor existing code.** Audit PHP files for `echo`,
+   `print`, `printf`, string concatenation or other output statements.  If any
+   variables, options or dynamic values are output without escaping,
+   refactor them to use the appropriate `esc_*()` function.  For numeric
+   values, cast them or use helpers like `(int)`, `absint()`, `(float)`
+   or `number_format_i18n()` as appropriate【160188288341942†L246-L250】.
+
+### Exceptions
+
+- Hard-coded strings and static HTML do not require escaping.
+- If a helper function or method is documented to return safe HTML,
+  document this in the code and store the result in a variable suffixes
+  with `_safe` or `_escaped` (e.g., `$html_safe`).  This makes it clear
+  that the value has been vetted【160188288341942†L205-L214】.

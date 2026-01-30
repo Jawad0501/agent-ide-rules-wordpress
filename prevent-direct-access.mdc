@@ -1,0 +1,61 @@
+---
+description: >
+  Prevent direct access to PHP files by adding an `ABSPATH` check at the top of every
+  plugin file that contains executable code.  Directly accessing a PHP file can
+  reveal the server path or execute code unintentionally.  WordPress core
+  defines the `ABSPATH` constant only when it is loaded; therefore, checking
+  that `ABSPATH` is defined before running any code mitigates this risk
+  【731144392483218†L269-L281】【873303562751887†L75-L85】.
+globs:
+  - '**/*.php'
+alwaysApply: true
+---
+
+### Summary
+
+WordPress best practices warn against allowing direct access to plugin PHP
+files.  When a PHP file is executed outside of WordPress (for example, by
+entering its URL in the browser), it can expose the full path of the file or
+execute code in an unexpected environment.  The official Plugin Handbook
+recommends adding a check for the `ABSPATH` constant at the start of any file
+that contains executable code【731144392483218†L269-L281】.  Since `ABSPATH`
+is defined only when WordPress is running, this check prevents the file from
+being run directly【873303562751887†L75-L85】.
+
+### Rule
+
+1. **Add an ABSPATH guard to executable files.** For any PHP file that
+   includes code which would execute when loaded (e.g., function calls,
+   class instantiation, inclusion of other files, registering hooks,
+   outputting content), insert the following snippet immediately after the
+   opening `<?php` tag and any namespace declaration:
+
+   ```php
+   if ( ! defined( 'ABSPATH' ) ) {
+       exit; // Exit if accessed directly
+   }
+   ```
+
+   - Place this guard before any code executes.  It ensures the file
+     terminates immediately if accessed outside the WordPress context.
+   - Do not place this check within function definitions or classes; it must
+     be top‑level code.
+
+2. **Include the guard in new files by default.** When creating new PHP
+   files for the plugin, especially those that register hooks or output
+   content, add the above ABSPATH check as a standard practice.
+
+3. **Audit existing files.** When refactoring or reviewing existing code,
+   search for PHP files without an ABSPATH guard and insert it as described
+   above.  Files that solely contain class or function definitions can
+   optionally include the guard for consistency, but the highest priority is
+   for files containing executable code.
+
+### Notes
+
+- This rule complies with the WordPress Plugin Handbook recommendation to
+  disallow direct access to plugin files【731144392483218†L269-L281】.
+- Files belonging to third‑party libraries (e.g., those under a `vendor`
+  directory) are typically safe to exclude from this guard, as they should
+  be loaded via an autoloader.  When in doubt, only modify files under your
+  own plugin’s namespace.
