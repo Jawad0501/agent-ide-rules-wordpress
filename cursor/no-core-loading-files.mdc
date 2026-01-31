@@ -1,0 +1,80 @@
+---
+description: >
+  Disallow direct inclusion of WordPress core loading files (e.g., `wp-config.php`,
+  `wp-blog-header.php`, `wp-load.php` and similar) from PHP files in this
+  project.  Manually loading these files via `include`, `require` or their
+  `*_once` variants is error‑prone because WordPress installations can have
+  different directory structures, and it doubles the cost of loading WordPress.
+  The official WordPress plugin review guidelines state that including core
+  files “is not a good idea” and plugins doing so will not be approved unless
+  there is a compelling reason【877282043590449†L280-L287】.  Instead of
+  loading core files yourself, tie your code into WordPress using hooks or
+  dedicated endpoints such as REST API routes or Ajax actions.  Only in
+  rare cases may a core file be loaded; when you do, call `require_once()` and
+  use a function from the file immediately.
+globs: "**/*.php"
+alwaysApply: true
+---
+
+## Rule: Do not include WordPress core files directly
+
+Plugins should never load WordPress core files directly.  The WordPress plugin
+team warns that including `wp-config.php`, `wp-blog-header.php`, `wp-load.php`,
+or any other core file via `include` or `require` is “not a good idea” and
+plugins that do this are rejected【877282043590449†L280-L287】.  This
+practice fails for two reasons:
+
+* **Fragile and unpredictable paths.**  WordPress installations can be moved
+  around or reconfigured, so any hard‑coded relative path to a core file is
+  likely to break【877282043590449†L280-L287】.  Your plugin should rely on
+  WordPress to load itself, not the other way around.
+* **Performance and security concerns.**  Loading core files manually
+  effectively bootstraps WordPress twice, which doubles the server load and
+  increases the risk of unauthenticated access【877282043590449†L280-L287】.
+
+### Approved alternatives
+
+1. **Hook your code into WordPress.**  Instead of including core files to
+   access WordPress functions, place your logic inside a callback function and
+   register it on an appropriate action hook.  The plugin team explicitly
+   recommends hooking processing functions into actions such as `init` or
+   `admin_init`【877282043590449†L287-L292】.  WordPress’s hook system
+   ensures that your code runs when WordPress is loaded and avoids manual
+   bootstrapping.
+
+2. **Provide endpoints through WordPress APIs.**  If you need to expose
+   functionality to external services, create a proper endpoint rather than
+   loading core files directly.  Options include:
+   - **Virtual pages using query vars and rewrite rules.**  Register a
+     custom query variable with `add_filter( 'query_vars', ... )` and detect
+     it during `template_redirect` to output your content.
+   - **Admin‑Ajax handlers.**  Register callbacks for `wp_ajax_*` (and
+     `wp_ajax_nopriv_*`) actions to handle Ajax requests.
+   - **REST API routes.**  Register endpoints via `register_rest_route()` to
+     expose a JSON interface.
+
+3. **Rare exceptions.**  In very limited cases you may need to load a core
+   file (for example, to redirect a user out of a plugin directory).  When you
+   do, call `require_once` to load the file and immediately execute a function
+   from it.  The plugin team notes that such exceptions must be justified and
+   are not generally acceptable【877282043590449†L280-L287】.
+
+### Guidelines for compliance
+
+* **Do not use `include`, `require`, `include_once` or `require_once`** to load
+  any file located in the WordPress core (such as `wp-config.php`,
+  `wp-blog-header.php`, `wp-load.php`, or files in `wp-admin`/`wp-includes`).
+
+* **Never hard‑code paths to core files.**  If your code needs to know the
+  WordPress root, use functions like `ABSPATH` to derive it, but avoid using
+  that constant to include core files.  Hook into WordPress instead.
+
+* **Refactor existing callbacks.**  If you have standalone scripts that
+  currently include core files to access WordPress, convert them into
+  proper Ajax actions, REST API endpoints, or template redirects.  Remove
+  the include/require statements and register your callbacks via hooks.
+
+* **Document exceptions.**  When a core file must be loaded (e.g., in a
+  redirect guard), wrap the `require_once` call in a comment explaining the
+  necessity and immediately call a function from the included file.  Do not
+  leave unused core file includes lying around.
