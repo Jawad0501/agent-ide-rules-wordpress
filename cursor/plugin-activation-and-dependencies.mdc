@@ -1,0 +1,90 @@
+---
+description: >
+  Prevent this plugin from activating or deactivating other plugins automatically.
+  The WordPress Plugin Review Team’s common issues list states that plugins are
+  **not allowed** to change the activation status of other plugins; this must be
+  an action performed by the user【150474925643558†L791-L793】.  It is also not
+  permitted to interfere with the user’s activation/deactivation of a plugin
+  except to avoid runtime errors (for example, when your plugin depends on
+  another plugin you may deactivate yourself if the dependency is missing【150474925643558†L791-L797】).  With WordPress 6.5 and later,
+  the new Plugin Dependencies feature introduces a `Requires Plugins` header
+  that ensures dependent plugins cannot be installed or activated until their
+  dependencies are installed and activated【196794837072427†L97-L133】.  Use this
+  mechanism or fallback checks to inform the user rather than forcibly
+  activating or installing other plugins.
+globs: "**/*.php"
+alwaysApply: true
+---
+
+## Rule: Do not manage other plugins’ activation status
+
+WordPress plugins **must not programmatically activate, deactivate, install or
+update other plugins**.  The Plugin Review Team explicitly prohibits this
+behaviour: “It is not allowed for plugins to change the activation status of
+other plugins; this is an action that must be performed by the user”【150474925643558†L791-L793】.
+Similarly, you must not override or block a user’s attempt to activate or
+deactivate your plugin, except to prevent fatal errors when a required
+dependency is missing【150474925643558†L791-L797】.  This rule applies to all
+project code in this repository.
+
+### Guidelines
+
+1. **Never call `activate_plugin()`, `activate_plugins()`, `deactivate_plugins()`,
+   `delete_plugins()`, or similar functions on other plugins.**  Your plugin
+   should not install or activate another plugin on behalf of the user.  If a
+   feature requires a separate plugin, ask the user to install/activate it.
+
+2. **Do not hijack the activation flow.**  When the user clicks “Activate” or
+   “Deactivate” on your plugin, allow WordPress to proceed normally.  Only
+   intervene when a dependency is missing, by deactivating your own plugin
+   and showing a descriptive admin notice that explains what is required and
+   how to resolve it【150474925643558†L791-L797】.
+
+3. **Declare dependencies using the `Requires Plugins` header.**  With
+   WordPress 6.5+, you can specify required plugins via the new
+   `Requires Plugins` header.  This header lists the slugs of the plugins your
+   plugin depends on.  WordPress then prevents the installation or activation
+   of your plugin until its dependencies are installed and activated【196794837072427†L97-L133】.
+   Use this mechanism whenever possible.  Users will see dependency notices and
+   disabled activation links if requirements are unmet.
+
+4. **Implement defensive checks as a fallback.**  Older WordPress versions
+   (pre‑6.5) do not support Plugin Dependencies.  For backward compatibility,
+   perform a capability check (e.g., `function_exists()` or `class_exists()`) in
+   your plugin’s `register_activation_hook` callback or `init` hook to verify
+   that required plugins are active.  If a dependency is missing:
+   - Display an admin notice explaining which plugin is required and include a
+     link to install/activate it.
+   - Deactivate your own plugin with `deactivate_plugins( plugin_basename( __FILE__ ) )` to avoid fatal errors.  Do **not** attempt to activate
+     the dependency yourself.
+
+5. **Avoid silently installing plugins.**  Never bundle or download other
+   plugins without explicit user consent.  Do not rely on `wp_install_plugin()`
+   or similar functions to fetch and install dependencies.  Instead, direct
+   users to the official plugin installation page or include a message
+   describing how to install the required plugin from the WordPress admin.
+
+6. **Communicate requirements clearly.**  Document your dependencies in the
+   plugin readme file and provide clear instructions on what the user needs to
+   install.  For optional integrations, gracefully disable the integration if
+   the required plugin is not present, and notify the user.
+
+7. **Do not override built‑in plugin installation UI.**  Respect the default
+   behaviours of the Plugins > Add New screen and plugin information modals.
+   Do not customize the UI to force installation or activation.  When Plugin
+   Dependencies are declared, WordPress automatically disables the Install
+   Now/Activate buttons until dependencies are met【196794837072427†L97-L133】.
+
+### Exceptions
+
+* **Self‑deactivation.**  If your plugin cannot function without another
+  plugin, you may deactivate **your own plugin** during activation if the
+  dependency is missing and display an admin notice explaining why.  You may
+  also prevent your plugin from activating in the first place by returning
+  `false` from your activation hook.
+
+* **Multi‑plugin bundles.**  In rare circumstances (e.g., a commercial bundle
+  that contains multiple plugins in one package), you may include and activate
+  bundled components as part of the same plugin.  However, you still must not
+  alter the state of unrelated plugins or those obtained from WordPress.org
+  without user confirmation.
